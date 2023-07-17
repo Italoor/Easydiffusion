@@ -17,7 +17,7 @@ if exist "stable-diffusion\env" (
 )
 
 if exist "scripts\get_config.py" (
-    @FOR /F "tokens=* USEBACKQ" %%F IN (`python scripts\get_config.py --default=main update_branch`) DO (
+    @FOR /F "tokens=* USEBACKQ" %%F IN (`python scripts\get_config.py --default=master update_branch`) DO (
         @SET update_branch=%%F
     )
 )
