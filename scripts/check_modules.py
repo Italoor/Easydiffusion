@@ -28,6 +28,7 @@ modules_to_check = {
     "werkzeug": "2.3.6",
     "flask-sqlalchemy": "3.0.5",
     "flask-login": "0.6.2",
+    "sqlalchemy": "2.0.19",
     # "xformers": "0.0.16",
 }
 modules_to_log = ["torch", "torchvision", "sdkit", "stable-diffusion-sdkit"]

@@ -19,8 +19,9 @@ from pycloudflared import try_cloudflare
 
 from flask import Flask, render_template, request, url_for, redirect, flash, send_from_directory, session
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_sqlalchemy import SQLAlchemy, IntegrityError
+from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin, login_user, LoginManager, login_required, current_user, logout_user
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 log.info(f"started in {app.SD_DIR}")
 log.info(f"started at {datetime.datetime.now():%x %X}")
@@ -192,13 +193,9 @@ def init():
         logout_user()
         return redirect(url_for('home'))
 
-    @flask.route('/download')
-    @login_required
-    def download():
-        return send_from_directory('./static/files', 'cheat_sheet.pdf', as_attachment=True)
-
     @server_api.get("/welcome")
-    def read_root():
+    @login_required
+    def welcome():
         return FileResponse(os.path.join(app.SD_UI_DIR, "index.html"), headers=NOCACHE_HEADERS)
 
     @server_api.on_event("shutdown")
