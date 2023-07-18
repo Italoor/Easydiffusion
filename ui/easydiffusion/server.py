@@ -199,7 +199,7 @@ def init():
 
     @server_api.get("/welcome")
     def read_root():
-        return FileResponse(os.path.join(app.SD_UI_DIR, "home.html"), headers=NOCACHE_HEADERS)
+        return FileResponse(os.path.join(app.SD_UI_DIR, "index.html"), headers=NOCACHE_HEADERS)
 
     @server_api.on_event("shutdown")
     def shutdown_event():  # Signal render thread to close on shutdown
