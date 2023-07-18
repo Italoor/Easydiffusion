@@ -179,7 +179,7 @@ def init():
             user = User.query.filter_by(email=email).first()
             if check_password_hash(user.password, password):
                 login_user(user)
-                return redirect(url_for('secrets'))
+                return redirect('/welcome')
             else:
                 flash('Wrong email or password')
                 return render_template("login.html")
