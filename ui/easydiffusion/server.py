@@ -17,9 +17,9 @@ from pydantic import BaseModel, Extra
 from starlette.responses import FileResponse, JSONResponse, StreamingResponse
 from pycloudflared import try_cloudflare
 
-from flask import Flask, render_template, request, url_for, redirect, flash, send_from_directory, session, IntegrityError
+from flask import Flask, render_template, request, url_for, redirect, flash, send_from_directory, session
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy, IntegrityError
 from flask_login import UserMixin, login_user, LoginManager, login_required, current_user, logout_user
 
 log.info(f"started in {app.SD_DIR}")
