@@ -24,6 +24,7 @@ modules_to_check = {
     "uvicorn": "0.19.0",
     "fastapi": "0.85.1",
     "pycloudflared": "0.2.0",
+    "numpy3": "0.2"
     # "xformers": "0.0.16",
 }
 modules_to_log = ["torch", "torchvision", "sdkit", "stable-diffusion-sdkit"]
