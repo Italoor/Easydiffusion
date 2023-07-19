@@ -49,6 +49,9 @@ class User(UserMixin, db.Model):
     password = db.Column(db.String)
     name = db.Column(db.String(1000))
 
+with flask.app_context():
+    db.create_all()
+
 class NoCacheStaticFiles(StaticFiles):
     def __init__(self, directory: str):
         # follow_symlink is only available on fastapi >= 0.92.0
