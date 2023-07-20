@@ -6,22 +6,42 @@ import datetime
 import mimetypes
 import os
 import traceback
+
 from typing import List, Union
-import bootstrap
 
 from easydiffusion import app, model_manager, task_manager
 from easydiffusion.types import GenerateImageRequest, MergeRequest, TaskData
 from easydiffusion.utils import log
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Request, Form, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Extra
 from starlette.responses import FileResponse, JSONResponse, StreamingResponse
 from pycloudflared import try_cloudflare
 
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from fastapi_users import FastAPIUsers, models, OAuth2PasswordRequestForm
+from fastapi_users.authentication import JWTAuthentication
+from fastapi_users.db import SQLAlchemyUserDatabase
+from pydantic import EmailStr, BaseModel
+from passlib.hash import pbkdf2_sha256
+
 log.info(f"started in {app.SD_DIR}")
 log.info(f"started at {datetime.datetime.now():%x %X}")
 
 server_api = FastAPI()
+
+templates = Jinja2Templates(directory="templates")
+SECRET = "super-secret-key"
+DATABASE_URL = "sqlite:///users.db"
+
+Base = declarative_base()
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 NOCACHE_HEADERS = {
     "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -29,6 +49,40 @@ NOCACHE_HEADERS = {
     "Expires": "0",
 }
 
+class UserDB(models.BaseUserDB, Base):
+    __tablename__ = "users"
+    id = models.UUIDField(primary_key=True, index=True, default=uuid.uuid4)
+    email = models.EmailField(unique=True, index=True)
+    hashed_password = models.PasswordField()
+
+class User(models.UDBase):
+    email: EmailStr
+
+class UserCreate(models.UCCBase):
+    email: EmailStr
+    password: str
+
+class UserUpdate(User, models.UDUpdate):
+    pass
+
+def get_user_db():
+    Base.metadata.create_all(bind=engine)
+    return SQLAlchemyUserDatabase(UserDB, SessionLocal())
+
+user_db = get_user_db()
+jwt_authentication = JWTAuthentication(
+    secret=SECRET,
+    lifetime_seconds=3600,
+    tokenUrl="auth/jwt/login"
+)
+
+fastapi_users = FastAPIUsers(
+    user_db,
+    [jwt_authentication],
+    User, UserCreate,
+    UserUpdate,
+    UserDB,
+)
 
 class NoCacheStaticFiles(StaticFiles):
     def __init__(self, directory: str):
@@ -123,9 +177,37 @@ def init():
     def stop_cloudflare_tunnel(req: dict):
         return stop_cloudflare_tunnel_internal(req)
 
-    @server_api.get("/")
-    def read_root():
+    @server_api.get("/welcome")
+    def welcome():
         return FileResponse(os.path.join(app.SD_UI_DIR, "home.html"), headers=NOCACHE_HEADERS)
+    
+    @server_api.get("/", response_class=HTMLResponse)
+    def home():
+        return templates.TemplateResponse("index.html", {"request": request})
+    
+    @server_api.post("/register")
+    def register(request: Request, name: str = Form(...), email: str = Form(...), password: str = Form(...)):
+        user_create = UserCreate(name=name, email=email, password=password)
+        user_db.create(user=user_create)
+        return JSONResponse({"message": "User registered successfully"})
+
+    @server_api.post("/login", response_class=HTMLResponse)
+    def login(request: Request, response: Response, email: str = Form(...), password: str = Form(...)):
+        credentials = OAuth2PasswordRequestForm(
+            username=email,
+            password=password
+        )
+        user = user_db.get_by_email(credentials.username)
+
+        if not user or not pbkdf2_sha256.verify(credentials.password, user.hashed_password):
+            raise HTTPException(status_code=400, detail="Incorrect email or password")
+
+        token = jwt_authentication.get_login_response(user, response)
+        return token
+
+    @server_api.get("/logout", response_class=HTMLResponse)
+    def logout():
+        return templates.TemplateResponse("index.html", {})
 
     @server_api.on_event("shutdown")
     def shutdown_event():  # Signal render thread to close on shutdown
