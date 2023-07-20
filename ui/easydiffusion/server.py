@@ -7,6 +7,7 @@ import mimetypes
 import os
 import traceback
 from typing import List, Union
+import bootstrap
 
 from easydiffusion import app, model_manager, task_manager
 from easydiffusion.types import GenerateImageRequest, MergeRequest, TaskData
@@ -17,25 +18,10 @@ from pydantic import BaseModel, Extra
 from starlette.responses import FileResponse, JSONResponse, StreamingResponse
 from pycloudflared import try_cloudflare
 
-from flask import Flask, render_template, request, url_for, redirect, flash, send_from_directory, session
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin, login_user, LoginManager, login_required, current_user, logout_user
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-
 log.info(f"started in {app.SD_DIR}")
 log.info(f"started at {datetime.datetime.now():%x %X}")
 
 server_api = FastAPI()
-flask = Flask(__name__)
-
-flask.config['SECRET_KEY'] = 'any-secret-key-you-choose'
-flask.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-flask.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(flask)
-
-login_manager = LoginManager()
-login_manager.init_app(flask)
 
 NOCACHE_HEADERS = {
     "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -43,14 +29,6 @@ NOCACHE_HEADERS = {
     "Expires": "0",
 }
 
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(100), unique=True)
-    password = db.Column(db.String)
-    name = db.Column(db.String(1000))
-
-with flask.app_context():
-    db.create_all()
 
 class NoCacheStaticFiles(StaticFiles):
     def __init__(self, directory: str):
@@ -144,62 +122,10 @@ def init():
     @server_api.post("/tunnel/cloudflare/stop")
     def stop_cloudflare_tunnel(req: dict):
         return stop_cloudflare_tunnel_internal(req)
-    
-    @login_manager.user_loader
-    def load_user(user_id):
-        return User.query.get(user_id)
 
-    @flask.route('/')
-    def home():
-        return render_template("index.html")
-
-
-    @flask.route('/register', methods=['GET', 'POST'])
-    def register():
-        if request.method == 'POST':
-            user = User(
-                        name = request.form['name'],
-                        email = request.form['email'],
-                        password = generate_password_hash(request.form['password'], method='pbkdf2:sha256', salt_length=8)
-                        )
-            try:
-                db.session.add(user)
-                db.session.commit()
-            except IntegrityError:
-                flash('Email is already in use')
-                return redirect(url_for('login', user='exists'))
-            print(len(user.password))
-            login_user(user)
-            return redirect(url_for('secrets'))
-        return render_template("register.html")
-
-
-
-    @flask.route('/login', methods=['GET', 'POST'])
-    def login():
-        if request.method == 'POST':
-            email = request.form['email']
-            password = request.form['password']
-            user = User.query.filter_by(email=email).first()
-            if check_password_hash(user.password, password):
-                login_user(user)
-                return redirect('/welcome')
-            else:
-                flash('Wrong email or password')
-                return render_template("login.html")
-        return render_template("login.html")
-
-
-    @flask.route('/logout')
-    @login_required
-    def logout():
-        logout_user()
-        return redirect(url_for('home'))
-
-    @server_api.get("/welcome")
-    @login_required
-    def welcome():
-        return FileResponse(os.path.join(app.SD_UI_DIR, "index.html"), headers=NOCACHE_HEADERS)
+    @server_api.get("/")
+    def read_root():
+        return FileResponse(os.path.join(app.SD_UI_DIR, "home.html"), headers=NOCACHE_HEADERS)
 
     @server_api.on_event("shutdown")
     def shutdown_event():  # Signal render thread to close on shutdown
