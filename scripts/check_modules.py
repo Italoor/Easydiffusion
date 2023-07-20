@@ -24,7 +24,8 @@ modules_to_check = {
     "uvicorn": "0.19.0",
     "fastapi": "0.85.1",
     "pycloudflared": "0.2.0",
-    "fastapi-users": "12.1.0",
+    "fastapi-users[sqlalchemy]": "12.1.0",
+    "aiosqlite": "0.19.0",
     # "xformers": "0.0.16",
 }
 modules_to_log = ["torch", "torchvision", "sdkit", "stable-diffusion-sdkit"]
