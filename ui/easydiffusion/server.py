@@ -18,13 +18,14 @@ from pydantic import BaseModel, Extra
 from starlette.responses import FileResponse, JSONResponse, StreamingResponse
 from pycloudflared import try_cloudflare
 
+from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from fastapi_users import FastAPIUsers, models, OAuth2PasswordRequestForm
+from fastapi_users import FastAPIUsers, models
 from fastapi_users.authentication import JWTAuthentication
 from fastapi_users.db import SQLAlchemyUserDatabase
 from pydantic import EmailStr, BaseModel
@@ -186,13 +187,13 @@ def init():
         return templates.TemplateResponse("index.html", {"request": request})
     
     @server_api.post("/register")
-    def register(request: Request, name: str = Form(...), email: str = Form(...), password: str = Form(...)):
+    def register(request: Request, name: str = Form(), email: str = Form(), password: str = Form()):
         user_create = UserCreate(name=name, email=email, password=password)
         user_db.create(user=user_create)
         return JSONResponse({"message": "User registered successfully"})
 
     @server_api.post("/login", response_class=HTMLResponse)
-    def login(request: Request, response: Response, email: str = Form(...), password: str = Form(...)):
+    def login(request: Request, response: Response, email: str = Form(), password: str = Form()):
         credentials = OAuth2PasswordRequestForm(
             username=email,
             password=password
